@@ -1,5 +1,5 @@
 import json
-from collections import namedtuple
+from itertools import repeat, izip, izip_longest
 
 
 class Node(object):
@@ -9,37 +9,37 @@ class Node(object):
         self.props = props or {}
 
 
-class Rel(object):
-    def __init__(self, kind, nodes, props=None):
-        self.kind = kind
-        self.nodes = nodes
-        self.props = props or {}
-
-
-def node_string(node, hook=False, hook_keys=()):
+def nodestr(node, hook=False, hook_keys=(), abbrev=False):
     """
     Create a Geoff node string representation for a node with the given name,
     labels and properties. Optionally, the node may be represented as a hook
     (in which case at least one label is required) and optional keys may be
-    provided that will be matched to node properties along with the hook.
+    provided that will be matched to node properties along with the hook. If
+    `abbrev` is `True` the short version of a node will be produced, which is
+    basically just the name in parentheses.
 
     TODO: Check that hook keys are in properties dictionary
     TODO: Allow string for labels if only one label
 
-    >>> node_string(Node('alice'))
+    >>> nodestr(Node('alice'))
     '(alice)'
-    >>> node_string(Node('alice', ['Person']))
+    >>> nodestr(Node('alice', ['Person']))
     '(alice:Person)'
-    >>> node_string(Node('alice', ['Person'], {'name': 'Alice'}))
+    >>> nodestr(Node('alice', ['Person'], {'name': 'Alice'}))
     '(alice:Person {"name": "Alice"})'
-    >>> node_string(Node('alice', ['Person']), hook=True)
+    >>> nodestr(Node('alice', ['Person']), hook=True)
     ':Person:=>(alice:Person)'
-    >>> node_string(Node('alice', ['Person'], {'name': 'Alice'}), hook=True, hook_keys=('name',))
+    >>> nodestr(Node('alice', ['Person'], {'name': 'Alice'}), hook=True, hook_keys=('name',))
     ':Person:name:=>(alice:Person {"name": "Alice"})'
+    >>> nodestr(Node('alice', ['Person'], {'name': 'Alice'}), abbrev=True)
+    '(alice)'
     """
     name = node.name
     labels = node.labels
     props = node.props
+
+    if abbrev:
+        return '({})'.format(name)
 
     ps = json.dumps(props)
     ls = ':'.join(labels)
@@ -68,12 +68,37 @@ def node_string(node, hook=False, hook_keys=()):
     return hs + ns
 
 
-def rel_string(rel):
+def relstr(nodes, kinds, props={}, abbrevs=False):
     """
-    Create a Geoff relationship string representation for a chain of nodes. The
-    relationship direction will be left-to-right (first-to-last) so, for
-    example, if two nodes are given, the output will be a directed relationship
-    from the first (element zero) to the second (element one). At least two
-    nodes much be given.
+    Hang in there, this one is a little comlicated. Takes a list or tuple of
+    each argument, though `kinds`, `props`, and `abbrevs` can also be scalars.
+    The length of `nodes` must be one greater than `kinds` and `props`.
+    Basically what happens is relationships are created of the given kind(s)
+    with the given properties and a path is formed from the first node to the
+    last. The `abbrevs` parameter determines whether full or abbreviated node
+    strings are used.
+
+    >>> n1 = Node('alice', ['Person'], {'name': 'Alice'})
+    >>> n2 = Node('bob', ['Person'], {'name': 'Bob'})
+    >>> n3 = Node('carol', ['Person'], {'name': 'Carol'})
+    >>> relstr([n1, n2, n3], ['KNOWS', 'LIKES'], abbrevs=True)
+    '(alice)-[:KNOWS]->(bob)-[:LIKES]->(carol)'
+    >>> relstr([n1, n2, n3], ['KNOWS', 'LIKES'], [{'since': 'yesterday'}, {'since': 'today'}], abbrevs=True)
+    '(alice)-[:KNOWS {"since": "yesterday"}]->(bob)-[:LIKES {"since": "today"}]->(carol)'
     """
-    pass
+    numrels = len(nodes) - 1
+    if type(kinds) not in (list, tuple):
+        kinds = repeat(kinds, numrels)
+
+    if type(props) not in (list, tuple):
+        props = repeat(props, numrels)
+
+    if type(abbrevs) not in (list, tuple):
+        abbrevs = repeat(abbrevs, len(nodes))
+
+    ks = ['-[:{}'.format(k) for k in kinds]
+    ps = [' {}]->'.format(json.dumps(p)) if p else ']->' for p in props]
+    rs = [k + p for k, p in izip(ks, ps)]
+    ns = [nodestr(n, abbrev=a) for n, a in izip(nodes, abbrevs)]
+
+    return ''.join([n + r for n, r in izip_longest(ns, rs, fillvalue='')])
