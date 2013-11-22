@@ -1,5 +1,7 @@
 ## Geoffer
 
+[![Build Status](https://drone.io/github.com/glesica/geoffer/status.png)](https://drone.io/github.com/glesica/geoffer/latest)
+
 A Python library and command line application for converting data to Geoff
 format for easy bulk insertion into a Neo4j database.
 
