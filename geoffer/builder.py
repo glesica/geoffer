@@ -3,6 +3,9 @@ from itertools import repeat, izip, izip_longest
 
 
 class Node(object):
+    """
+    An object to represent a single graph node.
+    """
     def __init__(self, name, labels=None, props=None):
         self.name = name
         self.labels = labels or []
@@ -17,6 +20,15 @@ def nodestr(node, hook=False, hook_keys=(), abbrev=False):
     provided that will be matched to node properties along with the hook. If
     `abbrev` is `True` the short version of a node will be produced, which is
     basically just the name in parentheses.
+
+    :param node: The node to represent
+    :type node: A `Node` object
+    :param hook: Whether the update (hook) syntax should be used
+    :type hook: Boolean
+    :param hook_keys: Property keys to match for hook syntax
+    :type hook_keys: Iterable
+    :param abbrev: Whether the abbreviated syntax should be used
+    :type abbrev: Boolean
 
     TODO: Check that hook keys are in properties dictionary
     TODO: Allow string for labels if only one label
@@ -70,13 +82,16 @@ def nodestr(node, hook=False, hook_keys=(), abbrev=False):
 
 def relstr(nodes, kinds, props={}, abbrevs=False):
     """
-    Hang in there, this one is a little comlicated. Takes a list or tuple of
-    each argument, though `kinds`, `props`, and `abbrevs` can also be scalars.
-    The length of `nodes` must be one greater than `kinds` and `props`.
-    Basically what happens is relationships are created of the given kind(s)
-    with the given properties and a path is formed from the first node to the
-    last. The `abbrevs` parameter determines whether full or abbreviated node
-    strings are used.
+    Creates a path of directed relationships.
+
+    :param nodes: Nodes to be linked in a chain
+    :type nodes: Iterable of `Node` objects
+    :param kinds: Strings describing relationship types
+    :type kinds: Iterable or string, length one less than `nodes` if iterable
+    :param props: Properties to be assigned to edges
+    :type props: Iterable or dict, length one less than `nodes` if iterable
+    :param abbrevs: Whether the abbreviated node format should be used
+    :type abbrevs: Iterable or boolean, same length as `nodes` if iterable
 
     >>> n1 = Node('alice', ['Person'], {'name': 'Alice'})
     >>> n2 = Node('bob', ['Person'], {'name': 'Bob'})
