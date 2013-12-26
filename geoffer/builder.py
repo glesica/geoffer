@@ -12,38 +12,35 @@ class Node(object):
         self.props = props or {}
 
 
-def nodestr(node, hook=False, hook_keys=(), abbrev=False):
+def nodestr(node, unique=False, unique_key=None, abbrev=False):
     """
     Create a Geoff node string representation for a node with the given name,
-    labels and properties. Optionally, the node may be represented as a hook
-    (in which case at least one label is required) and optional keys may be
-    provided that will be matched to node properties along with the hook. If
+    labels and properties. Optionally, the node may be created using the unique
+    syntax. This will cause the node to be updated if it already exists. If
     `abbrev` is `True` the short version of a node will be produced, which is
     basically just the name in parentheses.
 
     :param node: The node to represent
     :type node: A `Node` object
-    :param hook: Whether the update (hook) syntax should be used
-    :type hook: Boolean
-    :param hook_keys: Property keys to match for hook syntax
-    :type hook_keys: Iterable
+    :param unique: Whether the update syntax should be used
+    :type unique: Boolean
+    :param unique_key: Property keys to match for update syntax
+    :type unique_key: String
     :param abbrev: Whether the abbreviated syntax should be used
     :type abbrev: Boolean
 
-    TODO: Check that hook keys are in properties dictionary
+    TODO: Check that unique keys are in properties dictionary
     TODO: Allow string for labels if only one label
 
-    >>> nodestr(Node('alice'))
-    '(alice)'
-    >>> nodestr(Node('alice', ['Person']))
-    '(alice:Person)'
-    >>> nodestr(Node('alice', ['Person'], {'name': 'Alice'}))
+    >>> alice = Node('alice', ['Person'], {'name': 'Alice'})
+    >>> bob = Node('bob')
+    >>> nodestr(alice)
     '(alice:Person {"name": "Alice"})'
-    >>> nodestr(Node('alice', ['Person']), hook=True)
-    ':Person:=>(alice:Person)'
-    >>> nodestr(Node('alice', ['Person'], {'name': 'Alice'}), hook=True, hook_keys=('name',))
-    ':Person:name:=>(alice:Person {"name": "Alice"})'
-    >>> nodestr(Node('alice', ['Person'], {'name': 'Alice'}), abbrev=True)
+    >>> nodestr(bob)
+    '(bob)'
+    >>> nodestr(alice, unique=True, unique_key='name')
+    '(alice:Person!name {"name": "Alice"})'
+    >>> nodestr(alice, abbrev=True)
     '(alice)'
     """
     name = node.name
@@ -53,8 +50,24 @@ def nodestr(node, hook=False, hook_keys=(), abbrev=False):
     if abbrev:
         return '({})'.format(name)
 
+    if unique and not unique_key:
+        raise Exception('A unique_key is required if unique=True')
+
+    if unique and unique_key not in props:
+        raise Exception('props must contain unique_key if unique=True')
+
+    if unique and not labels:
+        raise Exception('At least one label is required if unique=True')
+
     ps = json.dumps(props)
-    ls = ':'.join(labels)
+
+    if unique:
+        if len(labels) > 1:
+            ls = '{}!{}:{}'.format(labels[0], unique_key, ':'.join(labels[1:]))
+        else:
+            ls = '{}!{}'.format(labels[0], unique_key)
+    else:
+        ls = ':'.join(labels)
 
     if labels and props:
         ns = '({}:{} {})'.format(name, ls, ps)
@@ -65,55 +78,64 @@ def nodestr(node, hook=False, hook_keys=(), abbrev=False):
     else:
         ns = '({})'.format(name)
 
-    hks = ':'.join(hook_keys)
-
-    if hook and not labels:
-        raise Exception('At least one label is required if hook=True')
-
-    if hook and hook_keys:
-        hs = ':{}:{}:=>'.format(ls, hks)
-    elif hook:
-        hs = ':{}:=>'.format(ls)
-    else:
-        hs = ''
-
-    return hs + ns
+    return ns
 
 
-def relstr(nodes, kinds, props={}, abbrevs=False):
+def relstr(node1, node2, kind, props={}, bidir=False, unique=False, unique_key=None, abbrev=True):
     """
     Creates a path of directed relationships.
 
-    :param nodes: Nodes to be linked in a chain
-    :type nodes: Iterable of `Node` objects
-    :param kinds: Strings describing relationship types
-    :type kinds: Iterable or string, length one less than `nodes` if iterable
+    :param node1: First node in the two-node chain
+    :type node1: `Node` object
+    :param node2: First node in the two-node chain
+    :type node2: `Node` object
+    :param kind: Relationship type
+    :type kind: String
     :param props: Properties to be assigned to edges
     :type props: Iterable or dict, length one less than `nodes` if iterable
-    :param abbrevs: Whether the abbreviated node format should be used
-    :type abbrevs: Iterable or boolean, same length as `nodes` if iterable
+    :param bidir: Create two relationships, one in each direction
+    :type bidir: Boolean
+    :prop unique: Use the unique syntax
+    :type unique: Boolean
+    :prop unique_key: Property key to match on for uniqueness
+    :type unique_key: String
+    :param abbrev: Whether the abbreviated node format should be used
+    :type abbrev: Boolean
 
-    >>> n1 = Node('alice', ['Person'], {'name': 'Alice'})
-    >>> n2 = Node('bob', ['Person'], {'name': 'Bob'})
-    >>> n3 = Node('carol', ['Person'], {'name': 'Carol'})
-    >>> relstr([n1, n2, n3], ['KNOWS', 'LIKES'], abbrevs=True)
-    '(alice)-[:KNOWS]->(bob)-[:LIKES]->(carol)'
-    >>> relstr([n1, n2, n3], ['KNOWS', 'LIKES'], [{'since': 'yesterday'}, {'since': 'today'}], abbrevs=True)
-    '(alice)-[:KNOWS {"since": "yesterday"}]->(bob)-[:LIKES {"since": "today"}]->(carol)'
+    >>> alice = Node('alice', ['Person'])
+    >>> bob = Node('bob')
+    >>> relstr(alice, bob, 'KNOWS')
+    '(alice)-[:KNOWS]->(bob)'
+    >>> relstr(alice, bob, 'KNOWS', {'since': 1999})
+    '(alice)-[:KNOWS {"since": 1999}]->(bob)'
+    >>> relstr(alice, bob, 'KNOWS', {'since': 1999}, unique=True, unique_key='since')
+    '(alice)-[:KNOWS!since {"since": 1999}]->(bob)'
+    >>> relstr(alice, bob, 'KNOWS', bidir=True)
+    '(alice)<-[:KNOWS]->(bob)'
+    >>> relstr(alice, bob, 'KNOWS', abbrev=False)
+    '(alice:Person)-[:KNOWS]->(bob)'
     """
-    numrels = len(nodes) - 1
-    if type(kinds) not in (list, tuple):
-        kinds = repeat(kinds, numrels)
+    ns1 = nodestr(node1, abbrev=abbrev)
+    ns2 = nodestr(node2, abbrev=abbrev)
 
-    if type(props) not in (list, tuple):
-        props = repeat(props, numrels)
+    if unique and not unique_key:
+        raise Exception('A unique_key is required if unique=True')
 
-    if type(abbrevs) not in (list, tuple):
-        abbrevs = repeat(abbrevs, len(nodes))
+    if unique and unique_key not in props:
+        raise Exception('props must contain unique_key if unique=True')
 
-    ks = ['-[:{}'.format(k) for k in kinds]
-    ps = [' {}]->'.format(json.dumps(p)) if p else ']->' for p in props]
-    rs = [k + p for k, p in izip(ks, ps)]
-    ns = [nodestr(n, abbrev=a) for n, a in izip(nodes, abbrevs)]
+    if unique:
+        if props:
+            rs = '{}!{} {}'.format(kind, unique_key, json.dumps(props))
+        else:
+            rs = '{}!{}'.format(kind, unique_key)
+    else:
+        if props:
+            rs = '{} {}'.format(kind, json.dumps(props))
+        else:
+            rs = kind
 
-    return ''.join([n + r for n, r in izip_longest(ns, rs, fillvalue='')])
+    if bidir:
+        return '{}<-[:{}]->{}'.format(ns1, rs, ns2)
+    else:
+        return '{}-[:{}]->{}'.format(ns1, rs, ns2)
