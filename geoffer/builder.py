@@ -11,6 +11,9 @@ class Node(object):
         self.labels = labels or []
         self.props = props or {}
 
+    def __repr__(self):
+        return '({})'.format(self.name)
+
 
 def nodestr(node, unique=False, unique_key=None, abbrev=False):
     """
