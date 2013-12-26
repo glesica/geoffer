@@ -6,8 +6,8 @@ class Node(object):
     """
     An object to represent a single graph node.
     """
-    def __init__(self, name, labels=None, props=None):
-        self.name = name
+    def __init__(self, name=None, labels=None, props=None):
+        self.name = name or ''
         self.labels = labels or []
         self.props = props or {}
 
