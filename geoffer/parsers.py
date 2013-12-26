@@ -9,13 +9,13 @@ class DictParser(object):
 
     >>> d1 = {'name': 'alice', 'type': 'employee', 'age': 23}
     >>> d2 = {'name': 'bob', 'type': 'employee', 'age': 48}
-    >>> f1 = DictFilter(name_key='name', label_keys=['type'], prop_keys=['name', 'age'])
+    >>> f1 = DictParser(name_key='name', label_keys=['type'], prop_keys=['name', 'age'])
     >>> f1(d1)
     '(alice:Employee {"age": 23, "name": "alice"})'
-    >>> f2 = DictFilter(name_key='name', extra_labels=['person'], unique_key='name')
+    >>> f2 = DictParser(name_key='name', extra_labels=['person'], unique_key='name')
     >>> f2(d1)
     '(alice:Person!name {"name": "alice"})'
-    >>> f3 = DictFilter(name_suffix='person1')
+    >>> f3 = DictParser(name_suffix='person1')
     >>> f3(d1)
     '(person1)'
     """
