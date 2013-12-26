@@ -14,3 +14,7 @@ Eventually this library will be able to handle everything from converting data
 into Geoff to actually uploading the results into Neo4j through the Load2neo API
 endpoint. Simple file formats will also be supported directly from the command
 line, no code necessary.
+
+### Tests
+
+To run the unit tests, just do `nosetests --with-doctest`.
