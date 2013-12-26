@@ -18,6 +18,9 @@ class DictParser(object):
     >>> f3 = DictParser(name_suffix='person1')
     >>> f3(d1)
     '(person1)'
+    >>> f4 = DictParser(extra_labels=['person'], unique_key='name', prop_keys=['name', 'height'])
+    >>> f4(d1)
+    '(:Person!name {"name": "alice"})'
     """
     def __init__(self, name_key=None, name_suffix='', label_keys=[], extra_labels=[],
                  unique_key=None, prop_keys=[]):
@@ -52,11 +55,7 @@ class DictParser(object):
         except KeyError, e:
             raise Exception("label_keys element '{}' not in data_dict".format(e))
 
-        try:
-            props = {k: data_dict[k] for k in self.prop_keys}
-        except KeyError, e:
-            raise Exception("prop_keys element '{}' not in data_dict".format(e))
-
+        props = {k: data_dict[k] for k in self.prop_keys if k in data_dict}
         node = Node(name, labels, props)
 
         return nodestr(node, self.unique_key)
